@@ -5,23 +5,13 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
 
 on:
   push:
     branches: [main]
     tags: [v*]
-    paths-ignore:
-      - '**.adoc'
-      - 'docs/**'
-      - '*.md'
-      - 'LICENSE'
   pull_request:
-    paths-ignore:
-      - '**.adoc'
-      - 'docs/**'
-      - '*.md'
-      - 'LICENSE'
 
 jobs:
   rake:
