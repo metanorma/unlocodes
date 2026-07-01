@@ -9,7 +9,7 @@ RuboCop::RakeTask.new
 
 task default: %i[spec rubocop]
 
-namespace :unlocode do
+namespace :unlocodes do
   desc 'Fetch the UNCEFACT UN/LOCODE vocabulary (default tag: 2025-1)'
   task :fetch, [:tag] do |_t, args|
     tag = args[:tag] || ENV.fetch('UNLOCODE_TAG', '2025-1')

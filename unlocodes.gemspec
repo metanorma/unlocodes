@@ -15,14 +15,14 @@ Gem::Specification.new do |spec|
     model-driven Ruby registry for looking up LOCODE entries by code, country,
     function, status, name, and other classifiers.
   DESC
-  spec.homepage = 'https://github.com/metanorma/unlocode'
+  spec.homepage = 'https://github.com/metanorma/unlocodes'
   spec.license = 'BSD-2-Clause'
   spec.required_ruby_version = '>= 3.1.0'
 
   spec.metadata = {
     'homepage_uri' => spec.homepage,
-    'source_code_uri' => 'https://github.com/metanorma/unlocode',
-    'bug_tracker_uri' => 'https://github.com/metanorma/unlocode/issues',
+    'source_code_uri' => 'https://github.com/metanorma/unlocodes',
+    'bug_tracker_uri' => 'https://github.com/metanorma/unlocodes/issues',
     'rubygems_mfa_required' => 'true'
   }.freeze
 

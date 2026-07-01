@@ -1,12 +1,12 @@
-= unlocode
+= unlocodes
 :toc: macro
-:homepage: https://github.com/metanorma/unlocode
+:homepage: https://github.com/metanorma/unlocodes
 
-`unlocode` is a Ruby gem that exposes the UN/LOCODE dataset (United Nations Code for Trade and Transport Locations) as a queryable in-memory registry.
+`unlocodes` is a Ruby gem that exposes the UN/LOCODE dataset (United Nations Code for Trade and Transport Locations) as a queryable in-memory registry.
 
 The dataset is sourced from the UNECE/UNCEFACT LOCODE vocabulary, version-tagged `2025-1`: https://opensource.unicc.org/un/unece/uncefact/vocab-locode/-/tags/2025-1
 
-The full 2025-1 dataset (115,928 LOCODEs across 249 countries) is bundled inside the gem as `lib/unlocode/data/locode.jsonld` and loads lazily into a typed registry on first use.
+The full 2025-1 dataset (115,928 LOCODEs across 249 countries) is bundled inside the gem as `lib/unlocodes/data/locode.jsonld` and loads lazily into a typed registry on first use.
 
 == Installation
 
@@ -72,15 +72,15 @@ To refresh the bundled dataset when a new UNCEFACT edition is released:
 
 [source,sh]
 ----
-bundle exec rake unlocode:fetch          # default tag: 2025-1
-UNLOCODE_TAG=2025-2 rake unlocode:fetch
+bundle exec rake unlocodes:fetch         # default tag: 2025-1
+UNLOCODE_TAG=2025-2 rake unlocodes:fetch
 ----
 
 If the upstream tag layout changes, point `UNLOCODE_PATH` at the full JSON-LD URL:
 
 [source,sh]
 ----
-UNLOCODE_PATH=https://example.org/path/unlocode.jsonld rake unlocode:fetch
+UNLOCODE_PATH=https://example.org/path/unlocode.jsonld rake unlocodes:fetch
 ----
 
 == License
