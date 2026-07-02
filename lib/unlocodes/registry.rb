@@ -18,13 +18,13 @@ module Unlocodes
     def_delegators :@entries, :size, :count, :to_a, :empty?
 
     # Map of `#where` filter keys to the Entry attribute they read.
+    # Limited to attributes the JSON-LD vocabulary actually populates —
+    # status / iata / name_without_diacritics are NOT in the vocab, so
+    # they're intentionally absent here.
     SCALAR_FILTERS = {
       code: :code,
       country: :country,
-      status: :status_code,
-      status_code: :status_code,
-      subdivision: :subdivision,
-      iata: :iata
+      subdivision: :subdivision
     }.freeze
 
     def initialize(entries = [])
@@ -108,10 +108,6 @@ module Unlocodes
       by_function_index[letter.to_s.upcase] || []
     end
 
-    def by_status(code)
-      by_status_index[code.to_s.upcase] || []
-    end
-
     private
 
     def by_code
@@ -129,12 +125,6 @@ module Unlocodes
     def by_function_index
       @by_function_index ||= entries.each_with_object({}) do |e, h|
         (e.function_codes || []).each { |c| (h[c.to_s.upcase] ||= []) << e }
-      end
-    end
-
-    def by_status_index
-      @by_status_index ||= entries.each_with_object({}) do |e, h|
-        (h[e.status_code.to_s.upcase] ||= []) << e if e.status_code
       end
     end
 

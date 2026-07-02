@@ -6,9 +6,11 @@
 
 The dataset is sourced from the UNECE/UNCEFACT LOCODE vocabulary, version-tagged `2025-1`: https://opensource.unicc.org/un/unece/uncefact/vocab-locode/-/tags/2025-1
 
-The full 2025-1 dataset (115,928 LOCODEs across 249 countries) is bundled inside the gem as `lib/unlocodes/data/locode.jsonld` and loads lazily into a typed registry on first use.
+The full 2025-1 dataset (115,928 LOCODEs across 249 countries, ~39 MB) is bundled inside the gem as `lib/unlocodes/data/locode.jsonld` and loads lazily into a typed registry on first use.
 
 == Installation
+
+Ruby 3.1 or newer is required.
 
 Add to your Gemfile:
 
@@ -17,18 +19,78 @@ Add to your Gemfile:
 gem 'unlocodes'
 ----
 
+Or install directly:
+
+[source,sh]
+----
+gem install unlocodes
+----
+
 == Usage
 
 [source,ruby]
 ----
 require 'unlocodes'
 
-Unlocodes.find('CNSHA')                          # => #<Unlocodes::Entry code="CNSHA" ...>
-Unlocodes.find('NLRTM').functions.map(&:code)    # => ["B", "R", "T", "A", "P"]
-Unlocodes.where(country: 'CN').count             # => 1670
-Unlocodes.where(function: 'B').count             # => 17912  (sea ports)
-Unlocodes.where(function: 'A').count             # => 9009   (airports)
-Unlocodes.find('CNPDG').coordinates              # => #<Coordinates lat=31.2333 lon=121.5000>
+# Lookup by 5-char LOCODE (case-insensitive)
+Unlocodes.find('CNSHA')                    # => #<Unlocodes::Entry code="CNSHA" name="Shanghai Hongqiao International Apt">
+Unlocodes['NLRTM'].name                    # => "Rotterdam" ([] is an alias for find)
+
+# Filters — single value or array (any-of)
+Unlocodes.where(country: 'CN').count       # => 1670
+Unlocodes.where(country: %w[CN HK]).count  # => entries in China OR Hong Kong
+Unlocodes.where(function: 'B').count       # => 17912 (sea ports)
+Unlocodes.where(function: 'A').count       # => 9009  (airports)
+Unlocodes.where(function: %w[B A]).count   # => 25136 (port OR airport)
+Unlocodes.where(subdivision: 'CNSH').count # => entries in the Shanghai subdivision
+
+# Filters combine
+Unlocodes.where(country: 'CN', function: 'A').count  # => CN airports
+
+# Name search — Regexp (substring) or String (case-insensitive equality)
+Unlocodes.where(name: /shanghai/i).map(&:code)
+Unlocodes.where(name: 'rotterdam').map(&:code)
+
+# Iteration
+Unlocodes.each { |e| puts e.code if e.port? }
+
+# Country listing
+Unlocodes.countries                        # => ["AD", "AE", ..., "ZW"] (249 codes)
+Unlocodes.counts_by_country.first(5)       # => [["US", 20852], ["FR", 14325], ...]
+
+# Indexed lookups (faster than `where` for a single value)
+Unlocodes.registry.by_country('CN').size   # => 1670
+Unlocodes.registry.by_function('B').size   # => 17912
+----
+
+=== What's in an Entry
+
+Each `Unlocodes::Entry` exposes the fields the JSON-LD vocabulary populates:
+
+[cols="1,2", options="header"]
+|===
+|Attribute|Description
+|`code`|5-char LOCODE (ISO country + 3-char location)
+|`country`|ISO 3166-1 alpha-2 country code
+|`subdivision`|ISO 3166-2 country subdivision code (e.g. `CNSH`)
+|`name`|Display name
+|`function_codes`|Array of single-letter function codes (see below)
+|`latitude`, `longitude`|WGS-84 decimal degrees
+|===
+
+Convenience predicates and value-type accessors:
+
+[source,ruby]
+----
+entry = Unlocodes.find('NLRTM')
+
+entry.port?             # => true  (function code B)
+entry.airport?          # => true  (function code A)
+entry.rail_terminal?    # => true  (function code R)
+entry.road_terminal?    # => true  (function code T)
+entry.functions.map(&:code)        # => ["B", "R", "T", "A", "P"]
+entry.functions.first.description  # => "Port (sea)"
+entry.coordinates       # => #<Unlocodes::Coordinates ...>
 ----
 
 === Function codes
@@ -49,39 +111,88 @@ The vocabulary publishes functions as `unlcdf:1`..`unlcdf:9`. The gem maps them 
 |9|O|Other / border crossing
 |===
 
-Use the letters in `where(function: ...)`:
+Use the letters in `where(function: ...)`. Passing an array matches any-of (OR), not all-of (AND):
 
 [source,ruby]
 ----
 Unlocodes.where(function: 'B').count             # sea ports
-Unlocodes.where(function: %w[B A]).count         # entries that are both port and airport
+Unlocodes.where(function: %w[B A]).count         # port OR airport (union)
+# For AND (entries that are BOTH port AND airport), filter in Ruby:
+Unlocodes.entries.count { |e| e.port? && e.airport? }  # => 1785
 ----
 
-=== Distances
+=== Coordinates and distances
 
 [source,ruby]
 ----
-shanghai = Unlocodes.find('CNPDG').coordinates
+shanghai = Unlocodes.find('CNPDG').coordinates   # Shanghai Pudong
 rotterdam = Unlocodes.find('NLRTM').coordinates
-shanghai.distance_to(rotterdam)                 # => 8922.0 (km, great-circle)
+
+shanghai.to_s              # => "31.2333 121.5000"
+shanghai.distance_to(rotterdam)  # => 8922.7 (km, great-circle via haversine)
 ----
 
-== Data refresh
+=== Fields NOT in the bundled vocabulary
 
-To refresh the bundled dataset when a new UNCEFACT edition is released:
+The JSON-LD vocabulary only publishes `code`, `country`, `subdivision`, `name`, `functions`, and coordinates. The UN/LOCODE manual additionally defines a `status` change indicator (AA, RL, XX, …), IATA code, change date, and remarks — these are in the per-country CSV files upstream, not the JSON-LD vocab, and are intentionally not modelled here.
+
+Calling `where(status: ...)` or `where(iata: ...)` raises `ArgumentError` rather than silently returning empty results.
+
+=== Which edition is bundled?
+
+[source,ruby]
+----
+Unlocodes.data_tag  # => "2025-1"
+----
+
+This reads `lib/unlocodes/data/SOURCE_TAG` at runtime. The `Unlocodes::Status` value type is still shipped for callers who want to consult the manual's status-code descriptions out-of-band.
+
+== Staying current with upstream
+
+UN/LOCODE is published twice-yearly (typically `YYYY-1` around Q1, `YYYY-2` around Q3). The gem ships two workflows to keep the bundled data fresh:
+
+=== `check-upstream` (scheduled, weekly)
+
+`.github/workflows/check-upstream.yml` runs every Monday, asks the upstream GitLab project for its latest tag, and compares against the bundled `SOURCE_TAG`. When a new edition is detected it opens a GitHub issue labelled `data-update` describing the diff and the next steps. The workflow also runs on manual dispatch.
+
+=== `update-data` (manual dispatch)
+
+`.github/workflows/update-data.yml` is what a maintainer runs after `check-upstream` flags a new edition. It takes the new tag as input, fetches the data, commits to a branch, and opens a PR. Merging that PR does not, by itself, publish a new gem — it just lands the new data on `main`. To ship a new gem version, trigger the `release` workflow (see below).
+
+End-to-end refresh flow:
+
+. `check-upstream` opens issue: "new tag `2025-2` available, bundled is `2025-1`"
+. Maintainer runs `update-data` workflow with `tag=2025-2`
+. Workflow opens PR `chore/data-2025-2` with the refreshed `locode.jsonld` and `SOURCE_TAG`
+. Maintainer reviews and merges the PR
+. Maintainer triggers the `release` workflow with `next_version=patch` to publish a new gem version
+
+Manual local equivalent of the workflow:
 
 [source,sh]
 ----
 bundle exec rake unlocodes:fetch         # default tag: 2025-1
-UNLOCODE_TAG=2025-2 rake unlocodes:fetch
+UNLOCODE_TAG=2025-2 bundle exec rake unlocodes:fetch
 ----
 
 If the upstream tag layout changes, point `UNLOCODE_PATH` at the full JSON-LD URL:
 
 [source,sh]
 ----
-UNLOCODE_PATH=https://example.org/path/unlocode.jsonld rake unlocodes:fetch
+UNLOCODE_PATH=https://example.org/path/unlocode.jsonld bundle exec rake unlocodes:fetch
 ----
+
+== Development
+
+[source,sh]
+----
+bundle install                       # install dev deps
+bundle exec rake                     # spec + rubocop
+bundle exec rspec spec/path/to_spec.rb:42   # one example
+bundle exec rake unlocodes:fetch     # refresh bundled data
+----
+
+The 39 MB dataset at `lib/unlocodes/data/locode.jsonld` is committed so the gem works offline. The first call to `Unlocodes.registry` in a process pays the parse cost (~3-5 s); subsequent calls are cached.
 
 == License
 

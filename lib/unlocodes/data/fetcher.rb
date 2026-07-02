@@ -7,18 +7,23 @@ require 'fileutils'
 module Unlocodes
   module Data
     # Downloads the UNCEFACT UN/LOCODE vocabulary from the upstream GitLab
-    # repository and stores it as `lib/unlocode/data/locode.jsonld`.
+    # repository and stores it as `lib/unlocodes/data/locode.jsonld`.
     #
     # The upstream tag (e.g. "2025-1") points at a snapshot of the
     # `vocab-locode` project whose `vocab/unlocode.jsonld` is the canonical
     # full dataset. Override the source URL with the `UNLOCODE_PATH` env
     # variable if a different edition's path layout applies.
+    #
+    # After a successful fetch, the tag is written to `SOURCE_TAG` next to
+    # the data file so the gem (and the check-upstream workflow) always
+    # knows which edition is bundled.
     module Fetcher
       UPSTREAM_HOST = 'opensource.unicc.org'
       UPSTREAM_TAG_PATH = '/un/unece/uncefact/vocab-locode/-/raw/%<tag>s'
-      OUTPUT_PATH = File.expand_path('locode.jsonld', __dir__)
+      DATA_DIR = File.expand_path(__dir__)
+      OUTPUT_PATH = File.join(DATA_DIR, 'locode.jsonld')
+      SOURCE_TAG_PATH = File.join(DATA_DIR, 'SOURCE_TAG')
 
-      DEFAULT_FILENAME = 'vocab/unlocode.jsonld'
       CANDIDATE_PATHS = [
         'vocab/unlocode.jsonld',
         'vocab/unlocode-vocab.jsonld',
@@ -32,7 +37,7 @@ module Unlocodes
         def call(tag:)
           uri = resolve_uri(tag)
           data = download(uri)
-          write(data)
+          write(data, tag: tag)
           warn "Fetched UN/LOCODE #{tag} (#{data.bytesize} bytes) -> #{OUTPUT_PATH}"
           OUTPUT_PATH
         end
@@ -67,9 +72,10 @@ module Unlocodes
           end
         end
 
-        def write(data)
-          FileUtils.mkdir_p(File.dirname(OUTPUT_PATH))
+        def write(data, tag:)
+          FileUtils.mkdir_p(DATA_DIR)
           File.write(OUTPUT_PATH, data)
+          File.write(SOURCE_TAG_PATH, "#{tag}\n")
         end
       end
     end

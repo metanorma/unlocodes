@@ -1,0 +1,75 @@
+name: update-data
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Upstream UN/LOCODE tag to fetch (e.g. 2025-2)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+
+      - name: Fetch new dataset
+        env:
+          UNLOCODE_TAG: ${{ inputs.tag }}
+        run: bundle exec rake unlocodes:fetch
+
+      - name: Verify update
+        run: |
+          NEW_TAG=$(head -1 lib/unlocodes/data/SOURCE_TAG)
+          if [ "$NEW_TAG" != "${{ inputs.tag }}" ]; then
+            echo "::error::SOURCE_TAG was not updated to ${{ inputs.tag }} (still $NEW_TAG)"
+            exit 1
+          fi
+          SIZE=$(stat -c%s lib/unlocodes/data/locode.jsonld)
+          echo "Bundled tag: $NEW_TAG"
+          echo "Data file size: $SIZE bytes"
+
+      - name: Create branch, commit, push
+        run: |
+          BRANCH="chore/data-${{ inputs.tag }}"
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git checkout -b "$BRANCH"
+          git add lib/unlocodes/data/locode.jsonld lib/unlocodes/data/SOURCE_TAG
+          git commit -m "Refresh UN/LOCODE dataset to ${{ inputs.tag }}"
+          git push origin "$BRANCH"
+
+      - name: Open PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BRANCH="chore/data-${{ inputs.tag }}"
+          BODY=$(cat <<EOF
+          ## What
+          Refreshes the bundled UN/LOCODE dataset to upstream tag \`${{ inputs.tag }}\`.
+
+          - \`lib/unlocodes/data/locode.jsonld\` — refreshed dataset
+          - \`lib/unlocodes/data/SOURCE_TAG\` — bumped to \`${{ inputs.tag }}\`
+
+          Upstream: https://opensource.unicc.org/un/unece/uncefact/vocab-locode/-/tags/${{ inputs.tag }}
+
+          ## After merge
+          Trigger the **release** workflow with \`next_version=patch\` to publish a new gem version containing the new data.
+          EOF
+          )
+          gh pr create \
+            --title "Refresh UN/LOCODE dataset to ${{ inputs.tag }}" \
+            --body "$BODY" \
+            --base main \
+            --head "$BRANCH" \
+            --label data-update

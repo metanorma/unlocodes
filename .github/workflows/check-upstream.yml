@@ -1,0 +1,110 @@
+name: check-upstream
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'  # Every Monday 09:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      upstream_tag: ${{ steps.latest.outputs.tag }}
+      bundled_tag: ${{ steps.bundled.outputs.tag }}
+      changed: ${{ steps.compare.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Latest upstream tag
+        id: latest
+        run: |
+          # GitLab project: un/unece/uncefact/vocab-locode
+          # URL-encode the path for the API call.
+          TAG=$(curl -fsSL \
+            "https://opensource.unicc.org/api/v4/projects/un%2Funece%2Funcefact%2Fvocab-locode/repository/tags?order_by=version&sort=desc&per_page=1" \
+            | jq -r '.[0].name // empty')
+          if [ -z "$TAG" ]; then
+            echo "::error::Could not determine latest upstream tag"
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Latest upstream tag: $TAG"
+
+      - name: Bundled tag
+        id: bundled
+        run: |
+          TAG=$(head -1 lib/unlocodes/data/SOURCE_TAG 2>/dev/null || true)
+          if [ -z "$TAG" ]; then
+            echo "::error::lib/unlocodes/data/SOURCE_TAG missing or empty"
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Bundled tag: $TAG"
+
+      - name: Compare
+        id: compare
+        run: |
+          if [ "${{ steps.latest.outputs.tag }}" = "${{ steps.bundled.outputs.tag }}" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Up to date (${{ steps.bundled.outputs.tag }})"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "New edition available: ${{ steps.bundled.outputs.tag }} -> ${{ steps.latest.outputs.tag }}"
+          fi
+
+      - name: Skip duplicate issue
+        id: existing
+        if: steps.compare.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="data-update: UN/LOCODE ${{ steps.latest.outputs.tag }} available (bundled: ${{ steps.bundled.outputs.tag }})"
+          EXISTING=$(gh issue list --label data-update --search "$TITLE" --state open --json number --jq 'length')
+          echo "existing=$EXISTING" >> "$GITHUB_OUTPUT"
+          if [ "$EXISTING" != "0" ]; then
+            echo "An open issue for this edition already exists; skipping create."
+          fi
+
+      - name: Open issue
+        if: steps.compare.outputs.changed == 'true' && steps.existing.outputs.existing == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > /tmp/issue-body.md <<'BODY'
+          A new UN/LOCODE edition is available upstream.
+
+          | | Tag |
+          |---|---|
+          | **Bundled** | ${{ steps.bundled.outputs.tag }} |
+          | **Upstream** | ${{ steps.latest.outputs.tag }} |
+
+          Upstream: https://opensource.unicc.org/un/unece/uncefact/vocab-locode/-/tags/${{ steps.latest.outputs.tag }}
+
+          ## To refresh
+
+          1. Run the **update-data** workflow with `tag=${{ steps.latest.outputs.tag }}` (or click the link below).
+          2. Review and merge the PR it opens.
+          3. Trigger the **release** workflow with `next_version=patch` to publish a new gem version.
+          BODY
+
+          # Substitute GitHub Actions outputs into the body.
+          sed -i "s|\${{ steps.bundled.outputs.tag }}|${{ steps.bundled.outputs.tag }}|g" /tmp/issue-body.md
+          sed -i "s|\${{ steps.latest.outputs.tag }}|${{ steps.latest.outputs.tag }}|g" /tmp/issue-body.md
+
+          # Build the workflow_dispatch URL (links to the Actions tab for update-data)
+          REPO="$GITHUB_REPOSITORY"
+          DISPATCH_URL="https://github.com/$REPO/actions/workflows/update-data.yml"
+
+          cat >> /tmp/issue-body.md <<EOF
+
+          [**Run update-data workflow for ${{ steps.latest.outputs.tag }}**]($DISPATCH_URL)
+          EOF
+
+          gh issue create \
+            --title "data-update: UN/LOCODE ${{ steps.latest.outputs.tag }} available (bundled: ${{ steps.bundled.outputs.tag }})" \
+            --body-file /tmp/issue-body.md \
+            --label data-update

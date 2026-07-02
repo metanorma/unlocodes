@@ -106,6 +106,14 @@ RSpec.describe Unlocodes::Registry do
     it 'raises ArgumentError for unknown filter keys' do
       expect { registry.where(unknown: 'x') }.to raise_error(ArgumentError)
     end
+
+    it 'raises ArgumentError for status (not in JSON-LD vocab)' do
+      expect { registry.where(status: 'AA') }.to raise_error(ArgumentError)
+    end
+
+    it 'raises ArgumentError for iata (not in JSON-LD vocab)' do
+      expect { registry.where(iata: 'PVG') }.to raise_error(ArgumentError)
+    end
   end
 
   describe '#by_country, #by_function' do
@@ -122,7 +130,6 @@ RSpec.describe Unlocodes::Registry do
       expect(registry.by_function('Z')).to eq([])
     end
   end
-
   describe '#countries' do
     it 'lists all distinct country codes sorted' do
       expect(registry.countries).to eq(%w[CN HK NL US])
