@@ -1,24 +1,36 @@
 # frozen_string_literal: true
 
 require 'lutaml/model'
-require_relative 'status'
-require_relative 'function'
 require_relative 'coordinates'
 
 module Unlocodes
   # A single UN/LOCODE entry.
   #
   # Stores wire-level fields as `lutaml-model` attributes and exposes typed
-  # helpers (#functions, #coordinates) that convert to {Function} and
-  # {Coordinates} value types on demand. The LOCODE itself is the 5-character
-  # composite of `country` (ISO 3166-1 alpha-2) + the 3-character location
-  # alpha. The `code` attribute is the canonical 5-char string.
+  # helpers (#coordinates, .function_description) for ergonomic queries. The
+  # LOCODE itself is the 5-character composite of `country` (ISO 3166-1
+  # alpha-2) + the 3-character location alpha. The `code` attribute is the
+  # canonical 5-char string.
   #
   # `latitude` and `longitude` are decimal degrees (WGS-84), populated when
-  # the source vocabulary provides `geo:lat` / `geo:long`. Older editions
-  # published a single coordinate string ("DDMMNDDDMMME"); see
-  # {Coordinates.parse} when converting from that form.
+  # the source vocabulary provides `geo:lat` / `geo:long`.
   class Entry < Lutaml::Model::Serializable
+    # UN/LOCODE manual function classifier letters and their human-readable
+    # descriptions. Source: UN/LOCODE manual, "Code list for function".
+    FUNCTION_DESCRIPTIONS = {
+      'B' => 'Port (sea)',
+      'R' => 'Rail terminal',
+      'T' => 'Road terminal',
+      'A' => 'Airport',
+      'P' => 'Postal exchange office',
+      'I' => 'Inland water transport (river)',
+      'F' => 'Ferry port',
+      'V' => 'Pipeline',
+      'O' => 'Other (border crossing, etc.)',
+      '0' => 'Function not known',
+      '1' => 'Not provided'
+    }.freeze
+
     attribute :code, :string
     attribute :country, :string
     attribute :subdivision, :string
@@ -27,8 +39,11 @@ module Unlocodes
     attribute :latitude, :float
     attribute :longitude, :float
 
-    def functions
-      (function_codes || []).map { |code| Function.cast(code) }
+    # Look up the human-readable description for a function letter.
+    # @param letter [String] single-letter function code (case-insensitive)
+    # @return [String, nil] description, or nil if the letter is unknown
+    def self.function_description(letter)
+      FUNCTION_DESCRIPTIONS[letter.to_s.upcase]
     end
 
     def function?(letter)

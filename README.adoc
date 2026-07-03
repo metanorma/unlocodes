@@ -88,9 +88,9 @@ entry.port?             # => true  (function code B)
 entry.airport?          # => true  (function code A)
 entry.rail_terminal?    # => true  (function code R)
 entry.road_terminal?    # => true  (function code T)
-entry.functions.map(&:code)        # => ["B", "R", "T", "A", "P"]
-entry.functions.first.description  # => "Port (sea)"
-entry.coordinates       # => #<Unlocodes::Coordinates ...>
+entry.function_codes                       # => ["B", "R", "T", "A", "P"]
+Unlocodes::Entry.function_description('B') # => "Port (sea)"
+entry.coordinates                          # => #<Unlocodes::Coordinates ...>
 ----
 
 === Function codes

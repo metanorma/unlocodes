@@ -46,11 +46,8 @@ module Unlocodes
 
   def_delegators :registry, :find, :where, :each, :size, :count, :countries
 
-  autoload :Status, 'unlocodes/status'
-  autoload :Function, 'unlocodes/function'
   autoload :Coordinates, 'unlocodes/coordinates'
   autoload :Entry, 'unlocodes/entry'
-  autoload :Loader, 'unlocodes/loader'
   autoload :Registry, 'unlocodes/registry'
   autoload :Data, 'unlocodes/data'
 end

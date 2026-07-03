@@ -27,15 +27,18 @@ RSpec.describe Unlocodes::Entry do
     end
   end
 
-  describe '#functions' do
-    it 'wraps each code in a Unlocodes::Function' do
-      expect(entry.functions).to all(be_a(Unlocodes::Function))
-      expect(entry.functions.map(&:code)).to eq(%w[B A P])
+  describe '.function_description' do
+    it 'looks up descriptions for known letters' do
+      expect(described_class.function_description('B')).to eq('Port (sea)')
+      expect(described_class.function_description('A')).to eq('Airport')
     end
 
-    it 'returns an empty array when function_codes is nil' do
-      entry = described_class.new(code: 'XXXXX')
-      expect(entry.functions).to eq([])
+    it 'is case-insensitive' do
+      expect(described_class.function_description('b')).to eq('Port (sea)')
+    end
+
+    it 'returns nil for unknown letters' do
+      expect(described_class.function_description('Z')).to be_nil
     end
   end
 

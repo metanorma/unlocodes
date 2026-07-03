@@ -31,6 +31,107 @@ RSpec.describe Unlocodes::Registry do
     end
   end
 
+  describe '.parse_json / .parse_hash (JSON-LD wire format)' do
+    let(:sample_json) { File.read(sample_path) }
+
+    it 'parses a JSON-LD string into Entry instances' do
+      entries = described_class.parse_json(sample_json)
+      expect(entries.size).to eq(4)
+      expect(entries).to all(be_a(Unlocodes::Entry))
+    end
+
+    it 'builds Entry attributes from real UNCEFACT wire names' do
+      entries = described_class.parse_json(sample_json)
+      shanghai = entries.find { |e| e.code == 'CNSHA' }
+
+      expect(shanghai.country).to eq('CN')
+      expect(shanghai.subdivision).to eq('CNSH')
+      expect(shanghai.name).to eq('Shanghai')
+      expect(shanghai.function_codes).to eq(%w[B A P])
+      expect(shanghai.latitude).to eq(31.2)
+      expect(shanghai.longitude).to eq(121.4)
+    end
+
+    it 'maps unlcdf numeric ids to function letters (1→B, 4→A)' do
+      shanghai = described_class.parse_json(sample_json).find { |e| e.code == 'CNSHA' }
+      expect(shanghai.function_codes).to eq(%w[B A P]) # 1, 4, 5 → B, A, P
+    end
+
+    it 'handles rdfs:label as an array (picks the @language=en entry)' do
+      parsed = { '@graph' => [{
+        '@type' => 'unlcdv:UNLOCODE',
+        'rdf:value' => 'ADSJL',
+        'rdfs:label' => [
+          { '@value' => 'Sant Julià de Lòria' },
+          { '@language' => 'en', '@value' => 'Sant Julia de Loria' }
+        ]
+      }] }
+      entry = described_class.parse_hash(parsed).first
+      expect(entry.name).to eq('Sant Julia de Loria')
+    end
+
+    it 'strips prefixes from unlcdv:countryCode @id references' do
+      parsed = { '@graph' => [{
+        '@type' => 'unlcdv:UNLOCODE',
+        'rdf:value' => 'XXXXX',
+        'unlcdv:countryCode' => { '@id' => 'unlcdc:XX' }
+      }] }
+      expect(described_class.parse_hash(parsed).first.country).to eq('XX')
+    end
+
+    it 'falls back to @id suffix when rdf:value is missing' do
+      parsed = { '@graph' => [{
+        '@type' => 'unlcdv:UNLOCODE',
+        '@id' => 'unlcd:CNSHA'
+      }] }
+      expect(described_class.parse_hash(parsed).first.code).to eq('CNSHA')
+    end
+
+    it 'skips non-UNLOCODE graph entries' do
+      parsed = { '@graph' => [
+        { '@type' => 'skos:ConceptScheme', '@id' => 'urn:locode' },
+        { '@type' => 'unlcdv:UNLOCODE', 'rdf:value' => 'CNSHA' }
+      ] }
+      expect(described_class.parse_hash(parsed).map(&:code)).to eq(['CNSHA'])
+    end
+
+    it 'leaves attributes nil when the wire data is missing' do
+      entry = described_class
+              .parse_hash('@graph' => [{ '@type' => 'unlcdv:UNLOCODE', 'rdf:value' => 'USNYC' }])
+              .first
+      expect(entry.country).to be_nil
+      expect(entry.function_codes).to be_empty
+      expect(entry.latitude).to be_nil
+      expect(entry.longitude).to be_nil
+    end
+
+    it 'handles a single function as a hash (not array)' do
+      parsed = { '@graph' => [{
+        '@type' => 'unlcdv:UNLOCODE',
+        'rdf:value' => 'XXXXX',
+        'unlcdv:functions' => { '@id' => 'unlcdf:4' }
+      }] }
+      expect(described_class.parse_hash(parsed).first.function_codes).to eq(['A'])
+    end
+
+    it 'preserves unknown function ids (e.g. letters) as-is' do
+      parsed = { '@graph' => [{
+        '@type' => 'unlcdv:UNLOCODE',
+        'rdf:value' => 'XXXXX',
+        'unlcdv:functions' => [{ '@id' => 'unlcdf:B' }]
+      }] }
+      expect(described_class.parse_hash(parsed).first.function_codes).to eq(['B'])
+    end
+
+    it 'returns empty for an empty graph' do
+      expect(described_class.parse_hash('@graph' => [])).to eq([])
+    end
+
+    it 'returns empty for a document with no graph' do
+      expect(described_class.parse_hash('@context' => {})).to eq([])
+    end
+  end
+
   describe '.from_entries' do
     it 'builds a registry from a list of entries' do
       entries = [Unlocodes::Entry.new(code: 'XXXXX')]

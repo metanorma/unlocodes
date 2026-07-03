@@ -12,14 +12,15 @@ Metrics/BlockLength:
 Metrics/AbcSize:
   Exclude:
     - 'lib/unlocodes/coordinates.rb'
-    - 'lib/unlocodes/loader.rb'
+    - 'lib/unlocodes/registry.rb'
 
 Metrics/CyclomaticComplexity:
   Exclude:
-    - 'lib/unlocodes/loader.rb'
+    - 'lib/unlocodes/registry.rb'
 
 Metrics/ClassLength:
-  Max: 120
+  Exclude:
+    - 'lib/unlocodes/registry.rb'
 
 Style/Documentation:
   Enabled: false
