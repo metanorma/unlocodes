@@ -28,40 +28,54 @@ gem install unlocodes
 
 == Usage
 
+Construct a `Unlocodes::Registry` once, hold onto it, and call its query methods. The gem ships a default registry backed by the bundled data file.
+
 [source,ruby]
 ----
 require 'unlocodes'
 
+registry = Unlocodes::Registry.load_default
+
 # Lookup by 5-char LOCODE (case-insensitive)
-Unlocodes.find('CNSHA')                    # => #<Unlocodes::Entry code="CNSHA" name="Shanghai Hongqiao International Apt">
-Unlocodes['NLRTM'].name                    # => "Rotterdam" ([] is an alias for find)
+registry.find('CNSHA')                       # => #<Unlocodes::Entry code="CNSHA" name="...">
+registry['NLRTM'].name                       # => "Rotterdam" ([] is an alias for find)
 
 # Filters — single value or array (any-of)
-Unlocodes.where(country: 'CN').count       # => 1670
-Unlocodes.where(country: %w[CN HK]).count  # => entries in China OR Hong Kong
-Unlocodes.where(function: 'B').count       # => 17912 (sea ports)
-Unlocodes.where(function: 'A').count       # => 9009  (airports)
-Unlocodes.where(function: %w[B A]).count   # => 25136 (port OR airport)
-Unlocodes.where(subdivision: 'CNSH').count # => entries in the Shanghai subdivision
+registry.where(country: 'CN').count          # => 1670
+registry.where(country: %w[CN HK]).count     # => entries in China OR Hong Kong
+registry.where(function: 'B').count          # => 17912 (sea ports)
+registry.where(function: 'A').count          # => 9009  (airports)
+registry.where(function: %w[B A]).count      # => 25136 (port OR airport)
+registry.where(subdivision: 'CNSH').count    # => entries in the Shanghai subdivision
 
 # Filters combine
-Unlocodes.where(country: 'CN', function: 'A').count  # => CN airports
+registry.where(country: 'CN', function: 'A').count  # => CN airports
 
 # Name search — Regexp (substring) or String (case-insensitive equality)
-Unlocodes.where(name: /shanghai/i).map(&:code)
-Unlocodes.where(name: 'rotterdam').map(&:code)
+registry.where(name: /shanghai/i).map(&:code)
+registry.where(name: 'rotterdam').map(&:code)
 
 # Iteration
-Unlocodes.each { |e| puts e.code if e.port? }
+registry.each { |e| puts e.code if e.port? }
 
 # Country listing
-Unlocodes.countries                        # => ["AD", "AE", ..., "ZW"] (249 codes)
-Unlocodes.counts_by_country.first(5)       # => [["US", 20852], ["FR", 14325], ...]
+registry.countries                           # => ["AD", "AE", ..., "ZW"] (249 codes)
+registry.counts_by_country.first(5)          # => [["US", 20852], ["FR", 14325], ...]
 
 # Indexed lookups (faster than `where` for a single value)
-Unlocodes.registry.by_country('CN').size   # => 1670
-Unlocodes.registry.by_function('B').size   # => 17912
+registry.by_country('CN').size               # => 1670
+registry.by_function('B').size               # => 17912
 ----
+
+To load from a different source (custom file, in-memory entries, etc.):
+
+[source,ruby]
+----
+registry = Unlocodes::Registry.load_file('path/to/custom.jsonld')
+registry = Unlocodes::Registry.from_entries([Unlocodes::Entry.new(code: 'CNSHA', ...)])
+----
+
+NOTE: The module-level shortcuts `Unlocodes.find(...)`, `Unlocodes.where(...)`, etc. still work as of 0.2.0 but emit a deprecation warning and will be removed in 0.3.0. Migrate to holding your own `Registry` instance.
 
 === What's in an Entry
 
@@ -82,7 +96,7 @@ Convenience predicates and value-type accessors:
 
 [source,ruby]
 ----
-entry = Unlocodes.find('NLRTM')
+entry = registry.find('NLRTM')
 
 entry.port?             # => true  (function code B)
 entry.airport?          # => true  (function code A)
@@ -115,18 +129,18 @@ Use the letters in `where(function: ...)`. Passing an array matches any-of (OR),
 
 [source,ruby]
 ----
-Unlocodes.where(function: 'B').count             # sea ports
-Unlocodes.where(function: %w[B A]).count         # port OR airport (union)
+registry.where(function: 'B').count             # sea ports
+registry.where(function: %w[B A]).count         # port OR airport (union)
 # For AND (entries that are BOTH port AND airport), filter in Ruby:
-Unlocodes.entries.count { |e| e.port? && e.airport? }  # => 1785
+registry.count { |e| e.port? && e.airport? }    # => 1785
 ----
 
 === Coordinates and distances
 
 [source,ruby]
 ----
-shanghai = Unlocodes.find('CNPDG').coordinates   # Shanghai Pudong
-rotterdam = Unlocodes.find('NLRTM').coordinates
+shanghai = registry.find('CNPDG').coordinates   # Shanghai Pudong
+rotterdam = registry.find('NLRTM').coordinates
 
 shanghai.to_s              # => "31.2333 121.5000"
 shanghai.distance_to(rotterdam)  # => 8922.7 (km, great-circle via haversine)
@@ -192,7 +206,7 @@ bundle exec rspec spec/path/to_spec.rb:42   # one example
 bundle exec rake unlocodes:fetch     # refresh bundled data
 ----
 
-The 39 MB dataset at `lib/unlocodes/data/locode.jsonld` is committed so the gem works offline. The first call to `Unlocodes.registry` in a process pays the parse cost (~3-5 s); subsequent calls are cached.
+The 39 MB dataset at `lib/unlocodes/data/locode.jsonld` is committed so the gem works offline. The first call to `Unlocodes::Registry.load_default` in a process pays the parse cost (~3-5 s); subsequent calls reuse the same Registry instance if you hold onto it.
 
 == License
 

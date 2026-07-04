@@ -86,6 +86,7 @@ These rules are load-bearing for this project; broader rules live in the global 
 - **No `double()` in specs.** Use real `Unlocodes::Entry` instances built from sample vocabulary fragments, or lightweight `Struct`s for plain data.
 - **Vendor the dataset inside the gem.** The gem must work offline. `lib/unlocode/data/locode.jsonld` ships in the gem package via the gemspec's `Dir.glob('{lib}/**/*')`.
 - **Data refresh is an upstream-sync task.** Run `bundle exec rake unlocode:fetch` → commit the new `lib/unlocode/data/locode.jsonld` as one clearly-described update. Gem version bumps follow SemVer independently.
+- **Standalone by design — no shared base across reference-data gems.** This gem does not share infrastructure with sibling gems (`iata`, future `iso3166`). Registry / Entry / Loader patterns are intentionally duplicated. See `docs/adr/0001-reference-data-gems-are-standalone.md`.
 
 ### Workflow safety (do not violate)
 

@@ -13,10 +13,6 @@ RSpec.configure do |config|
   config.disable_monkey_patching!
   config.order = :random
   Kernel.srand config.seed
-
-  config.after do
-    Unlocodes.reset_registry!
-  end
 end
 
 FIXTURES_DIR = File.expand_path('fixtures', __dir__)
