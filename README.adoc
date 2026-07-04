@@ -75,8 +75,6 @@ registry = Unlocodes::Registry.load_file('path/to/custom.jsonld')
 registry = Unlocodes::Registry.from_entries([Unlocodes::Entry.new(code: 'CNSHA', ...)])
 ----
 
-NOTE: The module-level shortcuts `Unlocodes.find(...)`, `Unlocodes.where(...)`, etc. still work as of 0.2.0 but emit a deprecation warning and will be removed in 0.3.0. Migrate to holding your own `Registry` instance.
-
 === What's in an Entry
 
 Each `Unlocodes::Entry` exposes the fields the JSON-LD vocabulary populates:

@@ -29,52 +29,41 @@ RSpec.describe Unlocodes do
     end
   end
 
-  describe 'deprecated module-level shortcuts' do
-    let(:registry) do
-      Unlocodes::Registry.from_entries([
-                                         Unlocodes::Entry.new(code: 'CNSHA', country: 'CN', name: 'Shanghai'),
-                                         Unlocodes::Entry.new(code: 'USNYC', country: 'US', name: 'New York')
-                                       ])
+  describe 'module-level singleton methods (removed in 0.3.0)' do
+    it 'does not define Unlocodes.find' do
+      expect(Unlocodes).not_to respond_to(:find)
     end
 
-    before do
-      allow(Unlocodes).to receive(:default_registry).and_return(registry)
-      allow(Unlocodes).to receive(:warn)
+    it 'does not define Unlocodes.where' do
+      expect(Unlocodes).not_to respond_to(:where)
     end
 
-    it 'still delegates find to the global registry' do
-      expect(Unlocodes.find('CNSHA').name).to eq('Shanghai')
+    it 'does not define Unlocodes.each' do
+      expect(Unlocodes).not_to respond_to(:each)
     end
 
-    it 'still delegates where to the global registry' do
-      expect(Unlocodes.where(country: 'CN').map(&:code)).to eq(%w[CNSHA])
+    it 'does not define Unlocodes.size' do
+      expect(Unlocodes).not_to respond_to(:size)
     end
 
-    it 'still delegates countries to the global registry' do
-      expect(Unlocodes.countries).to eq(%w[CN US])
+    it 'does not define Unlocodes.count' do
+      expect(Unlocodes).not_to respond_to(:count)
     end
 
-    it 'still delegates count to the global registry' do
-      expect(Unlocodes.count).to eq(2)
+    it 'does not define Unlocodes.countries' do
+      expect(Unlocodes).not_to respond_to(:countries)
     end
 
-    it 'warns on deprecated find' do
-      Unlocodes.find('CNSHA')
-      expect(Unlocodes).to have_received(:warn).with(/Unlocodes.find is deprecated/, anything)
+    it 'does not define Unlocodes.registry' do
+      expect(Unlocodes).not_to respond_to(:registry)
     end
 
-    it 'warns on deprecated registry access' do
-      Unlocodes.registry
-      expect(Unlocodes).to have_received(:warn).with(/Unlocodes.registry is deprecated/, anything)
-    end
-
-    it 'reset_registry! clears the memoized default' do
-      Unlocodes.reset_registry!
-      expect(Unlocodes.instance_variable_get(:@registry)).to be_nil
+    it 'does not define Unlocodes.reset_registry!' do
+      expect(Unlocodes).not_to respond_to(:reset_registry!)
     end
   end
 
-  describe 'recommended usage (no singleton)' do
+  describe 'recommended usage' do
     it 'constructs a Registry directly from the bundled data' do
       registry = Unlocodes::Registry.load_default
       expect(registry).to be_a(Unlocodes::Registry)
