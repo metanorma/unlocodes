@@ -1,0 +1,16 @@
+name: release-passed
+
+on:
+  repository_dispatch:
+    types: [release-passed]
+
+permissions:
+  contents: read
+
+jobs:
+  acknowledge:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "release-passed dispatch acknowledged"
+          echo "Payload: ${{ toJson(github.event.client_payload) }}"
